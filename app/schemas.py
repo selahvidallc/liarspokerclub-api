@@ -137,3 +137,16 @@ class HandResolveOut(BaseModel):
     card_number: int
     created_hand_ids: list[UUID]
     rows_created: int
+
+class UserSyncIn(BaseModel):
+    email: EmailStr
+    display_name: str = Field(min_length=1, max_length=120)
+
+class UserSyncOut(BaseModel):
+    id: UUID
+    email: EmailStr
+    display_name: str
+    created: bool
+
+    class Config:
+        from_attributes = True
