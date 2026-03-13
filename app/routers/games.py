@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.schemas import GameCreate, GameOut
 from app.models.models import Game, GamePreset, GamePlayer, User
-from sqlalchemy import text
+from sqlalchemy import text, or_
 from decimal import Decimal
 
 
@@ -73,6 +73,23 @@ def create_game(payload: GameCreate, db: Session = Depends(get_db)):
 def list_games(db: Session = Depends(get_db)):
     return db.query(Game).order_by(Game.created_at.desc()).all()
 
+@router.get("/my", response_model=list[GameOut])
+def list_my_games(user_id: UUID, db: Session = Depends(get_db)):
+    games = (
+        db.query(Game)
+        .outerjoin(GamePlayer, GamePlayer.game_id == Game.id)
+        .filter(
+            or_(
+                Game.created_by_user_id == user_id,
+                Game.scorekeeper_user_id == user_id,
+                GamePlayer.user_id == user_id,
+            )
+        )
+        .distinct()
+        .order_by(Game.created_at.desc())
+        .all()
+    )
+    return games
 
 @router.get("/{game_id}", response_model=GameOut)
 def get_game(game_id: UUID, db: Session = Depends(get_db)):
