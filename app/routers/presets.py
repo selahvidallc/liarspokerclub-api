@@ -11,7 +11,6 @@ router = APIRouter(prefix="/presets", tags=["presets"])
 def list_game_presets(favorites_only: bool = True, db: Session = Depends(get_db)):
     q = db.query(GamePreset).order_by(
         GamePreset.is_favorite.desc(),
-        GamePreset.sort_order.asc(),
         GamePreset.name.asc(),
     )
 
