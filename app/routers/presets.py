@@ -27,6 +27,7 @@ def list_game_presets(favorites_only: bool = True, db: Session = Depends(get_db)
                 "name": p.name,
                 "cards_per_hand": p.cards_per_hand,
                 "base_bet": str(p.base_bet),
+                "bet_ladder": p.bet_ladder,
                 "nut_enabled": p.nut_enabled,
                 "skunk_enabled": p.skunk_enabled,
                 "track_bid_trail": p.track_bid_trail,
