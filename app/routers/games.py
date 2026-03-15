@@ -10,8 +10,8 @@ from app.db import get_db
 from app.schemas import GameCreate, GameOut
 from app.models.models import Game, GamePreset, GamePlayer, User
 
-
 router = APIRouter(prefix="/games", tags=["games"])
+
 
 def require_scorekeeper(game: Game, actor_user_id: UUID):
     if game.scorekeeper_user_id != actor_user_id:
@@ -19,7 +19,8 @@ def require_scorekeeper(game: Game, actor_user_id: UUID):
             status_code=403,
             detail="Only the scorekeeper can change this game",
         )
-    
+
+
 @router.post("", response_model=GameOut)
 def create_game(payload: GameCreate, db: Session = Depends(get_db)):
     preset = None
@@ -46,32 +47,27 @@ def create_game(payload: GameCreate, db: Session = Depends(get_db)):
         )
         bet_ladder = [float(base)] * cards_per_hand
 
-    base_bet = Decimal(str(payload.base_bet)) if payload.base_bet is not None else Decimal(str(bet_ladder[0]))
+    base_bet = (
+        Decimal(str(payload.base_bet))
+        if payload.base_bet is not None
+        else Decimal(str(bet_ladder[0]))
+    )
 
     generated_title = f"Liar's Poker - {datetime.now().strftime('%Y-%m-%d %I:%M %p')}"
-
     final_title = (
         payload.title.strip()
         if payload.title and payload.title.strip() and payload.title.strip() != "Liar's Poker Game"
         else generated_title
     )
-    generated_title = f"Liar's Poker - {datetime.now().strftime('%Y-%m-%d %I:%M %p')}"
 
-    final_title = (
-        payload.title.strip()
-        if payload.title and payload.title.strip() and payload.title.strip() != "Liar's Poker Game"
-        else generated_title
-    )
     game = Game(
         created_by_user_id=payload.created_by_user_id,
         scorekeeper_user_id=payload.scorekeeper_user_id,
         title=final_title,
-
         nut_enabled=payload.nut_enabled if not preset else preset.nut_enabled,
         skunk_enabled=payload.skunk_enabled if not preset else preset.skunk_enabled,
         track_bid_trail=payload.track_bid_trail if not preset else preset.track_bid_trail,
         digit_order_mode=payload.digit_order_mode if not preset else preset.digit_order_mode,
-
         cards_per_hand=cards_per_hand,
         base_bet=base_bet,
         bet_ladder=bet_ladder,
@@ -93,9 +89,11 @@ def create_game(payload: GameCreate, db: Session = Depends(get_db)):
     db.refresh(game)
     return game
 
+
 @router.get("", response_model=list[GameOut])
 def list_games(db: Session = Depends(get_db)):
     return db.query(Game).order_by(Game.created_at.desc()).all()
+
 
 @router.get("/my", response_model=list[GameOut])
 def list_my_games(user_id: UUID, db: Session = Depends(get_db)):
@@ -119,12 +117,14 @@ def list_my_games(user_id: UUID, db: Session = Depends(get_db)):
 
     return games
 
+
 @router.get("/{game_id}", response_model=GameOut)
 def get_game(game_id: UUID, db: Session = Depends(get_db)):
     game = db.query(Game).filter(Game.id == game_id).first()
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
     return game
+
 
 @router.get("/{game_id}/players")
 def list_game_players(game_id: UUID, db: Session = Depends(get_db)):
@@ -151,6 +151,7 @@ def list_game_players(game_id: UUID, db: Session = Depends(get_db)):
         ],
     }
 
+
 @router.get("/{game_id}/settings")
 def get_game_settings(game_id: UUID, db: Session = Depends(get_db)):
     game = db.query(Game).filter(Game.id == game_id).first()
@@ -169,6 +170,8 @@ def get_game_settings(game_id: UUID, db: Session = Depends(get_db)):
         "track_bid_trail": game.track_bid_trail,
         "digit_order_mode": game.digit_order_mode,
     }
+
+
 @router.get("/{game_id}/hand-progress")
 def get_hand_progress(game_id: UUID, db: Session = Depends(get_db)):
     game = db.query(Game).filter(Game.id == game_id).first()
@@ -206,8 +209,15 @@ def get_hand_progress(game_id: UUID, db: Session = Depends(get_db)):
         "cards_per_hand": int(game.cards_per_hand),
         "current_hand_number": current_hand_number,
         "cards_played_in_current_hand": cards_played_in_current_hand,
-        "cards_remaining_in_current_hand": max(0, int(game.cards_per_hand) - cards_played_in_current_hand),
-        "hand_complete": cards_played_in_current_hand >= int(game.cards_per_hand) and int(game.cards_per_hand) > 0,
+        "cards_remaining_in_current_hand": max(
+            0, int(game.cards_per_hand) - cards_played_in_current_hand
+        ),
+        "hand_complete": (
+            cards_played_in_current_hand >= int(game.cards_per_hand)
+            and int(game.cards_per_hand) > 0
+        ),
+    }
+
 
 @router.post("/{game_id}/players")
 def add_player_to_game(
@@ -219,7 +229,9 @@ def add_player_to_game(
     game = db.query(Game).filter(Game.id == game_id).first()
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
+
     require_scorekeeper(game, x_user_id)
+
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -266,6 +278,7 @@ def remove_player_from_game(
 
     return {"ok": True, "message": "Player removed"}
 
+
 @router.post("/{game_id}/finalize")
 def finalize_game(
     game_id: UUID,
@@ -275,7 +288,9 @@ def finalize_game(
     game = db.query(Game).filter(Game.id == game_id).first()
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
+
     require_scorekeeper(game, x_user_id)
+
     if getattr(game, "status", "OPEN") == "FINALIZED":
         return {
             "ok": True,
