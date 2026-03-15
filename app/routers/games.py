@@ -40,7 +40,14 @@ def create_game(payload: GameCreate, db: Session = Depends(get_db)):
         bet_ladder = [float(base)] * cards_per_hand
 
     base_bet = Decimal(str(payload.base_bet)) if payload.base_bet is not None else Decimal(str(bet_ladder[0]))
- 
+
+    generated_title = f"Liar's Poker - {datetime.now().strftime('%Y-%m-%d %I:%M %p')}"
+
+    final_title = (
+        payload.title.strip()
+        if payload.title and payload.title.strip() and payload.title.strip() != "Liar's Poker Game"
+        else generated_title
+    )
     generated_title = f"Liar's Poker - {datetime.now().strftime('%Y-%m-%d %I:%M %p')}"
 
     final_title = (
