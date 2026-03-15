@@ -22,7 +22,7 @@ class UserOut(BaseModel):
 class GameCreate(BaseModel):
     created_by_user_id: UUID
     scorekeeper_user_id: UUID
-    title: str = "Liar's Poker Game"
+    title: str = ""
 
     preset_id: Optional[UUID] = None
 

@@ -27,7 +27,7 @@ class Game(Base):
     created_by_user_id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     scorekeeper_user_id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
 
-    title: Mapped[str] = mapped_column(String(200), default="Liar's Poker Game", nullable=False)
+    title: Mapped[str] = mapped_column(String(200), default="", nullable=False)
 
     nut_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     skunk_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
