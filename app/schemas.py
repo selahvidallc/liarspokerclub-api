@@ -53,9 +53,11 @@ class GameOut(BaseModel):
     bet_ladder: list[float] | None
     settlement_mode: str
 
+    status: str
+    finalized_at: Optional[datetime] = None
+
     class Config:
         from_attributes = True
-
 # ---------- Hands ----------
 class HandBidIn(BaseModel):
     user_id: UUID

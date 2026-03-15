@@ -2,7 +2,7 @@ from uuid import UUID
 from datetime import datetime, UTC
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from sqlalchemy import text, or_
 
@@ -13,6 +13,13 @@ from app.models.models import Game, GamePreset, GamePlayer, User
 
 router = APIRouter(prefix="/games", tags=["games"])
 
+def require_scorekeeper(game: Game, actor_user_id: UUID):
+    if game.scorekeeper_user_id != actor_user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the scorekeeper can change this game",
+        )
+    
 @router.post("", response_model=GameOut)
 def create_game(payload: GameCreate, db: Session = Depends(get_db)):
     preset = None
@@ -201,13 +208,18 @@ def get_hand_progress(game_id: UUID, db: Session = Depends(get_db)):
         "cards_played_in_current_hand": cards_played_in_current_hand,
         "cards_remaining_in_current_hand": max(0, int(game.cards_per_hand) - cards_played_in_current_hand),
         "hand_complete": cards_played_in_current_hand >= int(game.cards_per_hand) and int(game.cards_per_hand) > 0,
-    }
+
 @router.post("/{game_id}/players")
-def add_player_to_game(game_id: UUID, user_id: UUID, db: Session = Depends(get_db)):
+def add_player_to_game(
+    game_id: UUID,
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    x_user_id: UUID = Header(..., alias="X-User-Id"),
+):
     game = db.query(Game).filter(Game.id == game_id).first()
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
-
+    require_scorekeeper(game, x_user_id)
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -228,7 +240,18 @@ def add_player_to_game(game_id: UUID, user_id: UUID, db: Session = Depends(get_d
 
 
 @router.delete("/{game_id}/players/{user_id}")
-def remove_player_from_game(game_id: UUID, user_id: UUID, db: Session = Depends(get_db)):
+def remove_player_from_game(
+    game_id: UUID,
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    x_user_id: UUID = Header(..., alias="X-User-Id"),
+):
+    game = db.query(Game).filter(Game.id == game_id).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    require_scorekeeper(game, x_user_id)
+
     row = (
         db.query(GamePlayer)
         .filter(GamePlayer.game_id == game_id, GamePlayer.user_id == user_id)
@@ -244,11 +267,15 @@ def remove_player_from_game(game_id: UUID, user_id: UUID, db: Session = Depends(
     return {"ok": True, "message": "Player removed"}
 
 @router.post("/{game_id}/finalize")
-def finalize_game(game_id: UUID, db: Session = Depends(get_db)):
+def finalize_game(
+    game_id: UUID,
+    db: Session = Depends(get_db),
+    x_user_id: UUID = Header(..., alias="X-User-Id"),
+):
     game = db.query(Game).filter(Game.id == game_id).first()
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
-
+    require_scorekeeper(game, x_user_id)
     if getattr(game, "status", "OPEN") == "FINALIZED":
         return {
             "ok": True,

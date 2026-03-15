@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 from decimal import Decimal, InvalidOperation
 from types import SimpleNamespace
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -60,11 +60,20 @@ def compute_payout(bet: float, is_nut: bool, is_skunk: bool) -> float:
 
 
 @router.post("/{game_id}/hands/resolve", response_model=HandResolveOut)
-def resolve_hand(game_id: UUID, payload: HandResolveCreate, db: Session = Depends(get_db)):
+def resolve_hand(
+    game_id: UUID,
+    payload: HandResolveCreate,
+    db: Session = Depends(get_db),
+    x_user_id: UUID = Header(..., alias="X-User-Id"),
+):
     game: Game | None = db.query(Game).filter(Game.id == game_id).first()
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
-
+    if game.scorekeeper_user_id != x_user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the scorekeeper can change this game",
+        )
     roster = db.query(GamePlayer).filter(GamePlayer.game_id == game_id).all()
     roster_user_ids = [r.user_id for r in roster]
 
