@@ -8,6 +8,7 @@ from datetime import datetime
 class UserCreate(BaseModel):
     email: EmailStr
     display_name: str = Field(min_length=1, max_length=120)
+    grant_login_access: bool = True
 
 class UserOut(BaseModel):
     id: UUID

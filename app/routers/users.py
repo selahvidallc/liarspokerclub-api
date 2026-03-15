@@ -24,16 +24,19 @@ def list_users(db: Session = Depends(get_db)):
 @router.post("", response_model=UserOut)
 def create_user(payload: UserCreate, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.email == payload.email).first()
+
     if existing:
-        raise HTTPException(status_code=400, detail="A user with that email already exists")
+        return existing
 
     user = User(
         email=payload.email,
         display_name=payload.display_name,
     )
+
     db.add(user)
     db.commit()
     db.refresh(user)
+
     return user
 
 @router.post("/sync", response_model=UserSyncOut)
