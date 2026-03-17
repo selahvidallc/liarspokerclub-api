@@ -34,3 +34,18 @@ def add_player(game_id: UUID, payload: GamePlayerAdd, db: Session = Depends(get_
 @router.get("", response_model=list[GamePlayerOut])
 def list_players(game_id: UUID, db: Session = Depends(get_db)):
     return db.query(GamePlayer).filter(GamePlayer.game_id == game_id).all()
+
+@router.post("/{game_id}/players/{player_id}/deactivate")
+def deactivate_player(game_id: UUID, player_id: UUID, db: Session = Depends(get_db)):
+    gp = db.query(GamePlayer).filter(
+        GamePlayer.id == player_id,
+        GamePlayer.game_id == game_id
+    ).first()
+
+    if not gp:
+        raise HTTPException(status_code=404, detail="Player not found")
+
+    gp.is_active = False
+    db.commit()
+
+    return {"success": True}

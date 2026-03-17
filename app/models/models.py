@@ -52,6 +52,15 @@ class Game(Base):
 class Hand(Base):
     __tablename__ = "hands"
 
+    __table_args__ = (
+        UniqueConstraint(
+            "game_id",
+            "hand_number",
+            "card_number",
+            name="uq_game_hand_card",
+        ),
+    )
+
     id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     game_id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("games.id"), nullable=False)
 
@@ -85,7 +94,7 @@ class GamePlayer(Base):
     game_id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("games.id"), nullable=False)
     user_id: Mapped[uuid.UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
-
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
 class HandBid(Base):
     __tablename__ = "hand_bids"

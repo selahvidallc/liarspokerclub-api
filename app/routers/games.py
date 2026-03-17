@@ -1,14 +1,12 @@
 from uuid import UUID
 from datetime import datetime, UTC
-from decimal import Decimal
-
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
-from sqlalchemy import text, or_
-
 from app.db import get_db
 from app.schemas import GameCreate, GameOut
 from app.models.models import Game, GamePreset, GamePlayer, User
+from sqlalchemy import text, or_
+from decimal import Decimal
 
 router = APIRouter(prefix="/games", tags=["games"])
 
@@ -20,7 +18,13 @@ def require_scorekeeper(game: Game, actor_user_id: UUID):
             detail="Only the scorekeeper can change this game",
         )
 
-
+def require_creator(game: Game, actor_user_id: UUID):
+    if game.created_by_user_id != actor_user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the game creator can delete this game",
+        )
+    
 @router.post("", response_model=GameOut)
 def create_game(payload: GameCreate, db: Session = Depends(get_db)):
     preset = None
@@ -192,18 +196,18 @@ def get_hand_progress(game_id: UUID, db: Session = Depends(get_db)):
     if not rows:
         current_hand_number = 1
         cards_played_in_current_hand = 0
+        hand_complete = False
+        awaiting_next_hand = False
     else:
         last = rows[-1]
         last_hand_number = int(last["hand_number"])
         last_count = int(last["card_count"])
 
-        if last_count >= int(game.cards_per_hand):
-            current_hand_number = last_hand_number + 1
-            cards_played_in_current_hand = 0
-        else:
-            current_hand_number = last_hand_number
-            cards_played_in_current_hand = last_count
-
+        current_hand_number = last_hand_number
+        cards_played_in_current_hand = min(last_count, int(game.cards_per_hand))
+        hand_complete = last_count >= int(game.cards_per_hand)
+        awaiting_next_hand = hand_complete
+        
     return {
         "game_id": str(game_id),
         "cards_per_hand": int(game.cards_per_hand),
@@ -310,3 +314,44 @@ def finalize_game(
         "status": game.status,
         "finalized_at": game.finalized_at,
     }
+@router.delete("/{game_id}")
+def delete_game(
+    game_id: UUID,
+    db: Session = Depends(get_db),
+    x_user_id: UUID = Header(..., alias="X-User-Id"),
+):
+    game = db.query(Game).filter(Game.id == game_id).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    require_creator(game, x_user_id)
+
+    # delete child rows first
+    hand_ids = [
+        row[0]
+        for row in db.execute(
+            text("SELECT id FROM hands WHERE game_id = :gid"),
+            {"gid": str(game_id)},
+        ).fetchall()
+    ]
+
+    if hand_ids:
+        db.execute(
+            text("DELETE FROM hand_bids WHERE hand_id = ANY(:hand_ids)"),
+            {"hand_ids": hand_ids},
+        )
+
+    db.execute(
+        text("DELETE FROM hands WHERE game_id = :gid"),
+        {"gid": str(game_id)},
+    )
+
+    db.execute(
+        text("DELETE FROM game_players WHERE game_id = :gid"),
+        {"gid": str(game_id)},
+    )
+
+    db.delete(game)
+    db.commit()
+
+    return {"ok": True, "message": "Game deleted"}

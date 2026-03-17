@@ -111,6 +111,7 @@ class GamePlayerOut(BaseModel):
     game_id: UUID
     user_id: UUID
     created_at: datetime
+    is_active: bool
 
     class Config:
         from_attributes = True   

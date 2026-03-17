@@ -69,12 +69,26 @@ def resolve_hand(
     game: Game | None = db.query(Game).filter(Game.id == game_id).first()
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
+
+    if getattr(game, "status", "OPEN") == "FINALIZED":
+        raise HTTPException(
+            status_code=400,
+            detail="Game has been finalized. Scoring is locked."
+        )
+
     if game.scorekeeper_user_id != x_user_id:
         raise HTTPException(
             status_code=403,
             detail="Only the scorekeeper can change this game",
         )
-    roster = db.query(GamePlayer).filter(GamePlayer.game_id == game_id).all()
+    roster = (
+        db.query(GamePlayer)
+        .filter(
+            GamePlayer.game_id == game_id,
+            GamePlayer.is_active == True,
+        )
+        .all()
+    )
     roster_user_ids = [r.user_id for r in roster]
 
     if payload.bid_owner_user_id not in roster_user_ids:
@@ -112,7 +126,14 @@ def resolve_hand(
         },
     ).scalar()
     card_number = int(max_card_n) + 1
-
+    if card_number > int(game.cards_per_hand):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Hand {hand_number} is already complete. "
+                "Start a new hand before scoring again."
+            ),
+        )
     # nut overrides skunk
     is_nut = bool(payload.is_nut)
     is_skunk = bool(payload.is_skunk) if not is_nut else False
