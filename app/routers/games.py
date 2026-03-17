@@ -87,7 +87,7 @@ def create_game(payload: GameCreate, db: Session = Depends(get_db)):
     }
 
     for user_id in auto_player_ids:
-        db.add(GamePlayer(game_id=game.id, user_id=user_id))
+        db.add(GamePlayer(game_id=game.id, user_id=user_id, is_active=True))
 
     db.commit()
     db.refresh(game)
@@ -217,12 +217,10 @@ def get_hand_progress(game_id: UUID, db: Session = Depends(get_db)):
         "cards_remaining_in_current_hand": max(
             0, int(game.cards_per_hand) - cards_played_in_current_hand
         ),
-        "hand_complete": (
-            cards_played_in_current_hand >= int(game.cards_per_hand)
-            and int(game.cards_per_hand) > 0
-        ),
+        "hand_complete": hand_complete,
+        "awaiting_next_hand": awaiting_next_hand,
+        "next_hand_number": current_hand_number + 1 if hand_complete else current_hand_number,
     }
-
 
 @router.post("/{game_id}/players")
 def add_player_to_game(
@@ -246,10 +244,15 @@ def add_player_to_game(
         .filter(GamePlayer.game_id == game_id, GamePlayer.user_id == user_id)
         .first()
     )
+
     if existing:
+        if not bool(existing.is_active):
+            existing.is_active = True
+            db.commit()
+            return {"ok": True, "message": "Player reactivated"}
         return {"ok": True, "message": "Player already in game"}
 
-    gp = GamePlayer(game_id=game_id, user_id=user_id)
+    gp = GamePlayer(game_id=game_id, user_id=user_id, is_active=True)
     db.add(gp)
     db.commit()
 
