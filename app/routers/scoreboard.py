@@ -47,10 +47,27 @@ def get_scoreboard_matrix(game_id: UUID, db: Session = Depends(get_db)):
 
     players = db.execute(
         text("""
-            SELECT u.id, u.display_name
-            FROM game_players gp
-            JOIN users u ON u.id = gp.user_id
-            WHERE gp.game_id = :gid
+            SELECT DISTINCT u.id, u.display_name
+            FROM users u
+            WHERE u.id IN (
+                SELECT gp.user_id
+                FROM game_players gp
+                WHERE gp.game_id = :gid
+
+                UNION
+
+                SELECT h.winner_user_id
+                FROM hands h
+                WHERE h.game_id = :gid
+                AND h.winner_user_id IS NOT NULL
+
+                UNION
+
+                SELECT h.loser_user_id
+                FROM hands h
+                WHERE h.game_id = :gid
+                AND h.loser_user_id IS NOT NULL
+            )
             ORDER BY u.display_name
         """),
         {"gid": str(game_id)},
@@ -117,28 +134,28 @@ def get_scoreboard_session(game_id: UUID, db: Session = Depends(get_db)):
 
     players = db.execute(
         text("""
-            SELECT u.id::text AS player_id, u.display_name
-            FROM game_players gp
-            JOIN users u ON u.id = gp.user_id
-            WHERE gp.game_id = :gid
-            ORDER BY u.display_name
-        """),
-        {"gid": str(game_id)},
-    ).mappings().all()
+            SELECT DISTINCT u.id::text AS player_id, u.display_name
+            FROM users u
+            WHERE u.id IN (
+                SELECT gp.user_id
+                FROM game_players gp
+                WHERE gp.game_id = :gid
 
-    rows = db.execute(
-        text("""
-            SELECT
-                h.id::text AS row_id,
-                h.hand_number,
-                h.card_number,
-                h.created_at,
-                h.winner_user_id::text AS winner_user_id,
-                h.loser_user_id::text AS loser_user_id,
-                COALESCE(h.amount_won, 0)::numeric(12,2) AS amount_won
-            FROM hands h
-            WHERE h.game_id = :gid
-            ORDER BY h.hand_number ASC, h.card_number ASC, h.created_at ASC, h.id ASC
+                UNION
+
+                SELECT h.winner_user_id
+                FROM hands h
+                WHERE h.game_id = :gid
+                AND h.winner_user_id IS NOT NULL
+
+                UNION
+
+                SELECT h.loser_user_id
+                FROM hands h
+                WHERE h.game_id = :gid
+                AND h.loser_user_id IS NOT NULL
+            )
+            ORDER BY u.display_name
         """),
         {"gid": str(game_id)},
     ).mappings().all()

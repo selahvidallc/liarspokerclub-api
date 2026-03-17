@@ -137,7 +137,7 @@ def list_game_players(game_id: UUID, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Game not found")
 
     rows = (
-        db.query(User.id, User.display_name)
+        db.query(User.id, User.display_name, GamePlayer.is_active)
         .join(GamePlayer, GamePlayer.user_id == User.id)
         .filter(GamePlayer.game_id == game_id)
         .order_by(User.display_name)
@@ -150,9 +150,10 @@ def list_game_players(game_id: UUID, db: Session = Depends(get_db)):
             {
                 "id": str(row.id),
                 "display_name": row.display_name,
+                "is_active": bool(row.is_active),
             }
             for row in rows
-        ],
+        ],  
     }
 
 
@@ -277,11 +278,13 @@ def remove_player_from_game(
     if not row:
         raise HTTPException(status_code=404, detail="Player not found in game")
 
-    db.delete(row)
+    row.is_active = False
     db.commit()
 
-    return {"ok": True, "message": "Player removed"}
-
+    return {
+        "ok": True,
+        "message": "Player removed from future hands only",
+    }
 
 @router.post("/{game_id}/finalize")
 def finalize_game(
