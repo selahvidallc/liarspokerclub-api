@@ -7,17 +7,7 @@ from app.models.models import GamePreset
 router = APIRouter(prefix="/presets", tags=["presets"])
 
 
-@router.get("")
-def list_game_presets(db: Session = Depends(get_db)):
-    rows = (
-        db.query(GamePreset)
-        .order_by(
-            GamePreset.is_favorite.desc(),
-            GamePreset.name.asc(),
-        )
-        .all()
-    )
-
+def _serialize_presets(rows: list[GamePreset]):
     return [
         {
             "id": str(p.id),
@@ -33,3 +23,33 @@ def list_game_presets(db: Session = Depends(get_db)):
         }
         for p in rows
     ]
+
+
+@router.get("")
+def list_presets(db: Session = Depends(get_db)):
+    rows = (
+        db.query(GamePreset)
+        .order_by(
+            GamePreset.is_favorite.desc(),
+            GamePreset.name.asc(),
+        )
+        .all()
+    )
+    return _serialize_presets(rows)
+
+
+@router.get("/games")
+def list_game_presets(favorites_only: bool = True, db: Session = Depends(get_db)):
+    q = db.query(GamePreset).order_by(
+        GamePreset.is_favorite.desc(),
+        GamePreset.name.asc(),
+    )
+
+    if favorites_only:
+        q = q.filter(GamePreset.is_favorite == True)  # noqa: E712
+
+    rows = q.all()
+
+    return {
+        "presets": _serialize_presets(rows)
+    }
