@@ -9,11 +9,13 @@ class UserCreate(BaseModel):
     email: EmailStr
     display_name: str = Field(min_length=1, max_length=120)
     grant_login_access: bool = True
+    role: str = "player"
 
 class UserOut(BaseModel):
     id: UUID
     email: EmailStr
     display_name: str
+    role: str
 
     class Config:
         from_attributes = True
@@ -163,6 +165,7 @@ class UserSyncOut(BaseModel):
     email: EmailStr
     display_name: str
     created: bool
+    role: str
 
     class Config:
         from_attributes = True

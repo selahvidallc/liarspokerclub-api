@@ -60,6 +60,7 @@ def sync_user(payload: UserSyncIn, db: Session = Depends(get_db)):
             "email": existing.email,
             "display_name": existing.display_name,
             "created": False,
+            "role": existing.role,
         }
 
     user = User(
@@ -75,4 +76,5 @@ def sync_user(payload: UserSyncIn, db: Session = Depends(get_db)):
         "email": user.email,
         "display_name": user.display_name,
         "created": True,
+        "role": user.role,
     }
