@@ -189,7 +189,42 @@ def update_game_settings(
     if getattr(game, "status", "OPEN") == "FINALIZED":
         raise HTTPException(status_code=400, detail="Game is finalized")
 
-    game.cards_per_hand = payload.cards_per_hand
+    preset = None
+    if payload.preset_id:
+        preset = db.query(GamePreset).filter(GamePreset.id == payload.preset_id).first()
+        if not preset:
+            raise HTTPException(status_code=404, detail="Preset not found")
+
+    if preset:
+        game.cards_per_hand = preset.cards_per_hand
+        game.base_bet = preset.base_bet
+        game.bet_ladder = preset.bet_ladder
+        game.nut_enabled = preset.nut_enabled
+        game.skunk_enabled = preset.skunk_enabled
+        game.track_bid_trail = preset.track_bid_trail
+        game.digit_order_mode = preset.digit_order_mode
+    else:
+        if payload.cards_per_hand is not None:
+            game.cards_per_hand = payload.cards_per_hand
+
+        if payload.base_bet is not None:
+            game.base_bet = Decimal(str(payload.base_bet))
+
+        if payload.bet_ladder is not None:
+            game.bet_ladder = payload.bet_ladder
+
+        if payload.nut_enabled is not None:
+            game.nut_enabled = payload.nut_enabled
+
+        if payload.skunk_enabled is not None:
+            game.skunk_enabled = payload.skunk_enabled
+
+        if payload.track_bid_trail is not None:
+            game.track_bid_trail = payload.track_bid_trail
+
+        if payload.digit_order_mode is not None:
+            game.digit_order_mode = payload.digit_order_mode
+
     db.commit()
     db.refresh(game)
 
@@ -197,6 +232,12 @@ def update_game_settings(
         "ok": True,
         "game_id": str(game.id),
         "cards_per_hand": int(game.cards_per_hand),
+        "base_bet": str(game.base_bet),
+        "bet_ladder": game.bet_ladder,
+        "nut_enabled": game.nut_enabled,
+        "skunk_enabled": game.skunk_enabled,
+        "track_bid_trail": game.track_bid_trail,
+        "digit_order_mode": game.digit_order_mode,
     }
 
 @router.get("/{game_id}/hand-progress")

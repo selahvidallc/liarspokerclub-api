@@ -19,7 +19,17 @@ class UserOut(BaseModel):
         from_attributes = True
 
 class GameSettingsUpdate(BaseModel):
-    cards_per_hand: int = Field(ge=1, le=50)
+    preset_id: UUID | None = None
+
+    cards_per_hand: int | None = Field(default=None, ge=1, le=50)
+    base_bet: str | None = None
+    bet_ladder: list[float] | None = None
+
+    nut_enabled: bool | None = None
+    skunk_enabled: bool | None = None
+    track_bid_trail: bool | None = None
+    digit_order_mode: str | None = None
+    
 # ---------- Games ----------
 class GameCreate(BaseModel):
     created_by_user_id: UUID
