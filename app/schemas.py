@@ -18,6 +18,8 @@ class UserOut(BaseModel):
     class Config:
         from_attributes = True
 
+class GameSettingsUpdate(BaseModel):
+    cards_per_hand: int = Field(ge=1, le=50)
 # ---------- Games ----------
 class GameCreate(BaseModel):
     created_by_user_id: UUID

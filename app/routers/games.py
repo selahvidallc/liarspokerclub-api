@@ -3,7 +3,7 @@ from datetime import datetime, UTC
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from app.db import get_db
-from app.schemas import GameCreate, GameOut
+from app.schemas import GameCreate, GameOut, GameSettingsUpdate
 from app.models.models import Game, GamePreset, GamePlayer, User
 from sqlalchemy import text, or_
 from decimal import Decimal
@@ -176,6 +176,28 @@ def get_game_settings(game_id: UUID, db: Session = Depends(get_db)):
         "digit_order_mode": game.digit_order_mode,
     }
 
+@router.post("/{game_id}/update-settings")
+def update_game_settings(
+    game_id: UUID,
+    payload: GameSettingsUpdate,
+    db: Session = Depends(get_db),
+):
+    game = db.query(Game).filter(Game.id == game_id).first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    if getattr(game, "status", "OPEN") == "FINALIZED":
+        raise HTTPException(status_code=400, detail="Game is finalized")
+
+    game.cards_per_hand = payload.cards_per_hand
+    db.commit()
+    db.refresh(game)
+
+    return {
+        "ok": True,
+        "game_id": str(game.id),
+        "cards_per_hand": int(game.cards_per_hand),
+    }
 
 @router.get("/{game_id}/hand-progress")
 def get_hand_progress(game_id: UUID, db: Session = Depends(get_db)):
