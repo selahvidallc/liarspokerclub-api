@@ -1,12 +1,11 @@
 ﻿from fastapi import FastAPI
 from sqlalchemy import text
-from app.db import engine
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.db import engine
 from app.routers.users import router as users_router
 from app.routers.games import router as games_router
 from app.routers.hands import router as hands_router
-from app.routers.game_players import router as game_players_router
 from app.routers.scoreboard import router as scoreboard_router
 from app.routers.hands_resolve import router as hands_resolve_router
 from app.routers.presets import router as presets_router
@@ -40,7 +39,6 @@ def db_test():
 app.include_router(users_router)
 app.include_router(games_router)
 app.include_router(hands_router)
-app.include_router(game_players_router)
 app.include_router(scoreboard_router)
 app.include_router(hands_resolve_router)
 app.include_router(presets_router)
