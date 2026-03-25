@@ -51,13 +51,14 @@ def update_user_profile(user_id: str, payload: UserProfileUpdate, db: Session = 
 
 @router.post("", response_model=UserOut)
 def create_user(payload: UserCreate, db: Session = Depends(get_db)):
-    existing = db.query(User).filter(User.email == payload.email).first()
+    email = payload.email.strip().lower()
+    existing = db.query(User).filter(User.email == email).first()
 
     if existing:
         return existing
 
     user = User(
-        email=payload.email,
+        email=email,
         display_name=payload.display_name,
         role=payload.role,
     )
@@ -71,48 +72,37 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/sync", response_model=UserSyncOut)
 def sync_user(payload: UserSyncIn, db: Session = Depends(get_db)):
-    existing = db.query(User).filter(User.email == payload.email).first()
+    email = payload.email.strip().lower()
+    existing = db.query(User).filter(User.email == email).first()
 
-    if existing:
-        updated = False
+    if not existing:
+        raise HTTPException(
+            status_code=403,
+            detail="This email address is not invited to Liar's Poker Club."
+        )
 
-        if (
-            payload.display_name
-            and payload.display_name.strip()
-            and (
-                not existing.display_name
-                or existing.display_name.strip() == "Player"
-            )
-        ):
-            existing.display_name = payload.display_name.strip()
-            updated = True
+    updated = False
 
-        if updated:
-            db.add(existing)
-            db.commit()
-            db.refresh(existing)
+    if (
+        payload.display_name
+        and payload.display_name.strip()
+        and (
+            not existing.display_name
+            or existing.display_name.strip() == "Player"
+        )
+    ):
+        existing.display_name = payload.display_name.strip()
+        updated = True
 
-        return {
-            "id": existing.id,
-            "email": existing.email,
-            "display_name": existing.display_name,
-            "role": existing.role,
-            "created": False,
-        }
-
-    user = User(
-        email=payload.email,
-        display_name=payload.display_name.strip(),
-        role="player",
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+    if updated:
+        db.add(existing)
+        db.commit()
+        db.refresh(existing)
 
     return {
-        "id": user.id,
-        "email": user.email,
-        "display_name": user.display_name,
-        "role": user.role,
-        "created": True,
+        "id": existing.id,
+        "email": existing.email,
+        "display_name": existing.display_name,
+        "role": existing.role,
+        "created": False,
     }
