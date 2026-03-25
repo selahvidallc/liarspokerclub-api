@@ -3,19 +3,22 @@ from typing import Optional, List
 from uuid import UUID
 from decimal import Decimal
 from datetime import datetime
+from typing import Literal
+
+UserRole = Literal["player", "scorer", "club_admin", "super_admin"]
 
 # ---------- Users ----------
 class UserCreate(BaseModel):
     email: EmailStr
     display_name: str = Field(min_length=1, max_length=120)
     grant_login_access: bool = True
-    role: str = "player"
+    role: UserRole
 
 class UserOut(BaseModel):
     id: UUID
     email: EmailStr
     display_name: str
-    role: str
+    role: UserRole
 
     class Config:
         from_attributes = True
@@ -136,14 +139,6 @@ class HandUpdate(BaseModel):
     notes: Optional[str] = None
 
 
-class HandCardGroupUpdate(BaseModel):
-    hand_number: int
-    card_number: int
-    winner_user_id: UUID
-    amount_won: Decimal
-    final_bid_raw: Optional[str] = None
-    notes: Optional[str] = None
-
 class GamePlayerAdd(BaseModel):
     user_id: UUID
 
@@ -192,7 +187,7 @@ class UserSyncOut(BaseModel):
     email: EmailStr
     display_name: str
     created: bool
-    role: str
+    role: UserRole
 
     class Config:
         from_attributes = True
