@@ -128,6 +128,22 @@ class HandOut(BaseModel):
     class Config:
         from_attributes = True
 
+class HandUpdate(BaseModel):
+    winner_user_id: Optional[UUID] = None
+    loser_user_id: Optional[UUID] = None
+    amount_won: Optional[Decimal] = None
+    final_bid_raw: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class HandCardGroupUpdate(BaseModel):
+    hand_number: int
+    card_number: int
+    winner_user_id: UUID
+    amount_won: Decimal
+    final_bid_raw: Optional[str] = None
+    notes: Optional[str] = None
+
 class GamePlayerAdd(BaseModel):
     user_id: UUID
 
