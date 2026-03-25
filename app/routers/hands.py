@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from uuid import UUID
 
 from app.db_session import get_db
-from app.schemas import HandCreate, HandOut, HandUpdate
+from app.schemas import HandCreate, HandOut, HandUpdate, HandCardGroupUpdate
 from app.models.models import Hand, HandBid, Game, GamePlayer
 from app.services.lp_rules import parse_final_bid, compute_payout
 from decimal import Decimal
@@ -102,3 +102,81 @@ def update_hand(
     db.commit()
     db.refresh(hand)
     return hand
+
+@router.patch("/by-card", response_model=dict)
+def update_card_group(
+    game_id: UUID,
+    payload: HandCardGroupUpdate,
+    db: Session = Depends(get_db),
+):
+    existing_rows = (
+        db.query(Hand)
+        .filter(
+            Hand.game_id == game_id,
+            Hand.hand_number == payload.hand_number,
+            Hand.card_number == payload.card_number,
+        )
+        .order_by(Hand.created_at.asc(), Hand.id.asc())
+        .all()
+    )
+
+    if not existing_rows:
+        raise HTTPException(status_code=404, detail="Card group not found")
+
+    participant_ids = set()
+    for row in existing_rows:
+        if row.winner_user_id:
+            participant_ids.add(row.winner_user_id)
+        if row.loser_user_id:
+            participant_ids.add(row.loser_user_id)
+
+    if payload.winner_user_id not in participant_ids:
+        raise HTTPException(
+            status_code=400,
+            detail="Selected winner must already be a participant in this card",
+        )
+
+    loser_ids = [pid for pid in participant_ids if pid != payload.winner_user_id]
+    if not loser_ids:
+        raise HTTPException(
+            status_code=400,
+            detail="A card must have at least one loser",
+        )
+
+    template = existing_rows[0]
+
+    for row in existing_rows:
+        db.delete(row)
+    db.flush()
+
+    created_ids = []
+    for loser_id in loser_ids:
+        new_row = Hand(
+            game_id=game_id,
+            hand_number=payload.hand_number,
+            card_number=payload.card_number,
+            winner_user_id=payload.winner_user_id,
+            loser_user_id=loser_id,
+            final_bid_raw=(payload.final_bid_raw.strip() if payload.final_bid_raw else None),
+            final_bid_count=template.final_bid_count,
+            final_bid_digit=template.final_bid_digit,
+            is_nut=template.is_nut,
+            is_skunk=template.is_skunk,
+            amount_won=payload.amount_won,
+            notes=(payload.notes.strip() if payload.notes else None),
+        )
+        db.add(new_row)
+        db.flush()
+        created_ids.append(str(new_row.id))
+
+    db.commit()
+
+    return {
+        "ok": True,
+        "game_id": str(game_id),
+        "hand_number": payload.hand_number,
+        "card_number": payload.card_number,
+        "winner_user_id": str(payload.winner_user_id),
+        "loser_count": len(loser_ids),
+        "created_row_ids": created_ids,
+    }
