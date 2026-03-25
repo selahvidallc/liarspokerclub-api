@@ -67,42 +67,6 @@ def create_hand(game_id: UUID, payload: HandCreate, db: Session = Depends(get_db
 
     return hand
 
-@router.patch("/{hand_id}", response_model=HandOut)
-def update_hand(
-    game_id: UUID,
-    hand_id: UUID,
-    payload: HandUpdate,
-    db: Session = Depends(get_db),
-):
-    hand = (
-        db.query(Hand)
-        .filter(Hand.id == hand_id, Hand.game_id == game_id)
-        .first()
-    )
-
-    if not hand:
-        raise HTTPException(status_code=404, detail="Hand not found")
-
-    if payload.winner_user_id is not None:
-        hand.winner_user_id = payload.winner_user_id
-
-    if payload.loser_user_id is not None:
-        hand.loser_user_id = payload.loser_user_id
-
-    if payload.amount_won is not None:
-        hand.amount_won = payload.amount_won
-
-    if payload.final_bid_raw is not None:
-        hand.final_bid_raw = payload.final_bid_raw.strip() or None
-
-    if payload.notes is not None:
-        hand.notes = payload.notes.strip() or None
-
-    db.add(hand)
-    db.commit()
-    db.refresh(hand)
-    return hand
-
 @router.patch("/by-card", response_model=dict)
 def update_card_group(
     game_id: UUID,
@@ -180,3 +144,40 @@ def update_card_group(
         "loser_count": len(loser_ids),
         "created_row_ids": created_ids,
     }
+
+@router.patch("/{hand_id}", response_model=HandOut)
+def update_hand(
+    game_id: UUID,
+    hand_id: UUID,
+    payload: HandUpdate,
+    db: Session = Depends(get_db),
+):
+    hand = (
+        db.query(Hand)
+        .filter(Hand.id == hand_id, Hand.game_id == game_id)
+        .first()
+    )
+
+    if not hand:
+        raise HTTPException(status_code=404, detail="Hand not found")
+
+    if payload.winner_user_id is not None:
+        hand.winner_user_id = payload.winner_user_id
+
+    if payload.loser_user_id is not None:
+        hand.loser_user_id = payload.loser_user_id
+
+    if payload.amount_won is not None:
+        hand.amount_won = payload.amount_won
+
+    if payload.final_bid_raw is not None:
+        hand.final_bid_raw = payload.final_bid_raw.strip() or None
+
+    if payload.notes is not None:
+        hand.notes = payload.notes.strip() or None
+
+    db.add(hand)
+    db.commit()
+    db.refresh(hand)
+    return hand
+
