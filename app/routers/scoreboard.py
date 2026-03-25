@@ -56,11 +56,15 @@ def scoreboard_timeline(game_id: UUID, db: Session = Depends(get_db)):
     rows = db.execute(
         text("""
             SELECT
-              h.hand_number,
-              h.card_number,
-              h.winner_user_id::text AS winner_id,
-              h.loser_user_id::text AS loser_id,
-              COALESCE(h.amount_won, 0)::numeric(12,2) AS amount
+                h.id::text AS row_id,
+                h.hand_number,
+                h.card_number,
+                h.created_at,
+                h.winner_user_id::text AS winner_user_id,
+                h.loser_user_id::text AS loser_user_id,
+                COALESCE(h.amount_won, 0)::numeric(12,2) AS amount_won,
+                h.final_bid_raw,
+                h.notes
             FROM hands h
             WHERE h.game_id = :gid
             ORDER BY h.hand_number ASC, h.card_number ASC, h.created_at ASC, h.id ASC
@@ -146,7 +150,9 @@ def get_scoreboard_session(game_id: UUID, db: Session = Depends(get_db)):
                 h.created_at,
                 h.winner_user_id::text AS winner_user_id,
                 h.loser_user_id::text AS loser_user_id,
-                COALESCE(h.amount_won, 0)::numeric(12,2) AS amount_won
+                COALESCE(h.amount_won, 0)::numeric(12,2) AS amount_won,
+                h.final_bid_raw,
+                h.notes
             FROM hands h
             WHERE h.game_id = :gid
             ORDER BY h.hand_number ASC, h.card_number ASC, h.created_at ASC, h.id ASC
@@ -211,12 +217,29 @@ def get_scoreboard_session(game_id: UUID, db: Session = Depends(get_db)):
                 "hand_total": hand_totals[pid],
             })
 
+        card_details = []
+
+        for card_number in sorted(cards.keys()):
+            card_rows = cards[card_number]
+
+            for r in card_rows:
+                card_details.append({
+                    "row_id": r["row_id"],
+                    "card_number": int(r["card_number"]),
+                    "winner_user_id": r["winner_user_id"],
+                    "loser_user_id": r["loser_user_id"],
+                    "amount_won": float(r["amount_won"]),
+                    "final_bid_raw": r["final_bid_raw"],
+                    "notes": r["notes"],
+                })
+
         hands_output.append({
             "hand_number": hand_number,
             "cards": list(card_totals.keys()),
             "players": hand_player_rows,
             "card_totals": card_totals,
             "hand_total_sum": sum(card_totals.values()),
+            "cards_detail": card_details,
         })
 
         hand_summary_rows.append({

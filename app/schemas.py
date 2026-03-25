@@ -101,6 +101,13 @@ class HandCreate(BaseModel):
 
     # Optional: only send if game.track_bid_trail=true
     bids: Optional[List[HandBidIn]] = None
+    
+class HandUpdate(BaseModel):
+    winner_user_id: Optional[UUID] = None
+    loser_user_id: Optional[UUID] = None
+    amount_won: Optional[Decimal] = None
+    final_bid_raw: Optional[str] = None
+    notes: Optional[str] = None
 
 class HandOut(BaseModel):
     id: UUID
