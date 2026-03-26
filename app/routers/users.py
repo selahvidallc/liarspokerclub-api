@@ -9,6 +9,7 @@ from app.schemas import (
     UserSyncIn,
     UserSyncOut,
     UserProfileUpdate,
+    UserAdminUpdate,
 )
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -48,6 +49,19 @@ def update_user_profile(user_id: str, payload: UserProfileUpdate, db: Session = 
     db.refresh(user)
     return user
 
+@router.patch("/{user_id}/admin", response_model=UserOut)
+def update_user_admin(user_id: str, payload: UserAdminUpdate, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.display_name = payload.display_name.strip()
+    user.role = payload.role
+
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
 
 @router.post("", response_model=UserOut)
 def create_user(payload: UserCreate, db: Session = Depends(get_db)):

@@ -26,6 +26,10 @@ class UserOut(BaseModel):
 class UserProfileUpdate(BaseModel):
     display_name: str = Field(min_length=1, max_length=120)
 
+class UserAdminUpdate(BaseModel):
+    display_name: str = Field(min_length=1, max_length=120)
+    role: UserRole
+
 class GameSettingsUpdate(BaseModel):
     preset_id: UUID | None = None
 
