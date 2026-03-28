@@ -94,17 +94,17 @@ def update_card_group(
         if row.loser_user_id:
             participant_ids.add(row.loser_user_id)
 
-    if payload.winner_user_id not in participant_ids:
+    if payload.bid_owner_user_id not in participant_ids:
         raise HTTPException(
             status_code=400,
-            detail="Selected winner must already be a participant in this card",
+            detail="Selected bid owner must already be a participant in this card",
         )
 
-    loser_ids = [pid for pid in participant_ids if pid != payload.winner_user_id]
-    if not loser_ids:
+    other_ids = [pid for pid in participant_ids if pid != payload.bid_owner_user_id]
+    if not other_ids:
         raise HTTPException(
             status_code=400,
-            detail="A card must have at least one loser",
+            detail="A card must have at least one opposing player",
         )
 
     template = existing_rows[0]
@@ -114,24 +114,45 @@ def update_card_group(
     db.flush()
 
     created_ids = []
-    for loser_id in loser_ids:
-        new_row = Hand(
-            game_id=game_id,
-            hand_number=payload.hand_number,
-            card_number=payload.card_number,
-            winner_user_id=payload.winner_user_id,
-            loser_user_id=loser_id,
-            final_bid_raw=(payload.final_bid_raw.strip() if payload.final_bid_raw else None),
-            final_bid_count=template.final_bid_count,
-            final_bid_digit=template.final_bid_digit,
-            is_nut=template.is_nut,
-            is_skunk=template.is_skunk,
-            amount_won=payload.amount_won,
-            notes=(payload.notes.strip() if payload.notes else None),
-        )
-        db.add(new_row)
-        db.flush()
-        created_ids.append(str(new_row.id))
+
+    if payload.bid_owner_won:
+        for loser_id in other_ids:
+            new_row = Hand(
+                game_id=game_id,
+                hand_number=payload.hand_number,
+                card_number=payload.card_number,
+                winner_user_id=payload.bid_owner_user_id,
+                loser_user_id=loser_id,
+                final_bid_raw=(payload.final_bid_raw.strip() if payload.final_bid_raw else None),
+                final_bid_count=template.final_bid_count,
+                final_bid_digit=template.final_bid_digit,
+                is_nut=template.is_nut,
+                is_skunk=template.is_skunk,
+                amount_won=payload.amount_won,
+                notes=(payload.notes.strip() if payload.notes else None),
+            )
+            db.add(new_row)
+            db.flush()
+            created_ids.append(str(new_row.id))
+    else:
+        for winner_id in other_ids:
+            new_row = Hand(
+                game_id=game_id,
+                hand_number=payload.hand_number,
+                card_number=payload.card_number,
+                winner_user_id=winner_id,
+                loser_user_id=payload.bid_owner_user_id,
+                final_bid_raw=(payload.final_bid_raw.strip() if payload.final_bid_raw else None),
+                final_bid_count=template.final_bid_count,
+                final_bid_digit=template.final_bid_digit,
+                is_nut=template.is_nut,
+                is_skunk=template.is_skunk,
+                amount_won=payload.amount_won,
+                notes=(payload.notes.strip() if payload.notes else None),
+            )
+            db.add(new_row)
+            db.flush()
+            created_ids.append(str(new_row.id))
 
     db.commit()
 
@@ -140,8 +161,8 @@ def update_card_group(
         "game_id": str(game_id),
         "hand_number": payload.hand_number,
         "card_number": payload.card_number,
-        "winner_user_id": str(payload.winner_user_id),
-        "loser_count": len(loser_ids),
+        "bid_owner_user_id": str(payload.bid_owner_user_id),
+        "bid_owner_won": payload.bid_owner_won,
         "created_row_ids": created_ids,
     }
 

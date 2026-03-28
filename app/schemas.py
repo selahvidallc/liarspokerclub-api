@@ -112,7 +112,8 @@ class HandCreate(BaseModel):
 class HandCardGroupUpdate(BaseModel):
     hand_number: int
     card_number: int
-    winner_user_id: UUID
+    bid_owner_user_id: UUID
+    bid_owner_won: bool
     amount_won: Decimal
     final_bid_raw: Optional[str] = None
     notes: Optional[str] = None
