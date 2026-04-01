@@ -18,12 +18,21 @@ def require_scorekeeper(game: Game, actor_user_id: UUID):
             detail="Only the scorekeeper can change this game",
         )
 
-def require_creator(game: Game, actor_user_id: UUID):
-    if game.created_by_user_id != actor_user_id:
-        raise HTTPException(
-            status_code=403,
-            detail="Only the game creator can delete this game",
-        )
+def require_delete_access(game: Game, actor_user_id: UUID, db: Session):
+    actor = db.query(User).filter(User.id == actor_user_id).first()
+    if not actor:
+        raise HTTPException(status_code=404, detail="Acting user not found")
+
+    if actor.role in ("super_admin", "club_admin"):
+        return
+
+    if game.created_by_user_id == actor_user_id:
+        return
+
+    raise HTTPException(
+        status_code=403,
+        detail="Only an admin or the game creator can delete this game",
+    )
     
 @router.post("", response_model=GameOut)
 def create_game(payload: GameCreate, db: Session = Depends(get_db)):
@@ -386,7 +395,7 @@ def delete_game(
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
 
-    require_creator(game, x_user_id)
+    require_delete_access(game, x_user_id, db)
 
     # delete child rows first
     hand_ids = [
