@@ -137,24 +137,9 @@ def get_scoreboard_matrix(game_id: UUID, db: Session = Depends(get_db)):
 
 @router.get("/{game_id}/scoreboard/session")
 def get_scoreboard_session(game_id: UUID, db: Session = Depends(get_db)):
-    game_exists = db.execute(
-        text("SELECT 1 FROM games WHERE id = :gid"),
-        {"gid": str(game_id)},
-    ).scalar()
+    ensure_game_exists(game_id, db)
 
-    if not game_exists:
-        raise HTTPException(status_code=404, detail="Game not found")
-
-    players = db.execute(
-        text("""
-            SELECT u.id::text AS player_id, u.display_name
-            FROM game_players gp
-            JOIN users u ON u.id = gp.user_id
-            WHERE gp.game_id = :gid
-            ORDER BY u.display_name
-        """),
-        {"gid": str(game_id)},
-    ).mappings().all()
+    players = get_player_rows(game_id, db)
 
     rows = db.execute(
         text("""
@@ -165,7 +150,9 @@ def get_scoreboard_session(game_id: UUID, db: Session = Depends(get_db)):
                 h.created_at,
                 h.winner_user_id::text AS winner_user_id,
                 h.loser_user_id::text AS loser_user_id,
-                COALESCE(h.amount_won, 0)::numeric(12,2) AS amount_won
+                COALESCE(h.amount_won, 0)::numeric(12,2) AS amount_won,
+                h.final_bid_raw,
+                h.notes
             FROM hands h
             WHERE h.game_id = :gid
             ORDER BY h.hand_number ASC, h.card_number ASC, h.created_at ASC, h.id ASC
@@ -191,6 +178,7 @@ def get_scoreboard_session(game_id: UUID, db: Session = Depends(get_db)):
         player_card_amounts = {pid: {} for pid in player_ids}
         hand_totals = {pid: 0.0 for pid in player_ids}
         card_totals = {}
+        cards_detail_output = []
 
         cards = {}
         for r in hand_rows:
@@ -234,6 +222,16 @@ def get_scoreboard_session(game_id: UUID, db: Session = Depends(get_db)):
                     session_totals[loser] -= amount
                     card_totals[card_key] -= amount
 
+                cards_detail_output.append({
+                    "row_id": r["row_id"],
+                    "card_number": card_number,
+                    "winner_user_id": winner,
+                    "loser_user_id": loser,
+                    "amount_won": amount,
+                    "final_bid_raw": r["final_bid_raw"],
+                    "notes": r["notes"],
+                })
+
             unique_winners = sorted(set(winners))
             unique_losers = sorted(set(losers))
 
@@ -241,12 +239,12 @@ def get_scoreboard_session(game_id: UUID, db: Session = Depends(get_db)):
             bid_owner_won = None
 
             # infer bid owner from settlement shape:
-            # if one winner beats many losers -> bid owner won
-            # if many winners beat one loser -> bid owner lost
-            if len(unique_winners) == 1:
+            # one winner vs many losers => bid owner won
+            # many winners vs one loser => bid owner lost
+            if len(unique_winners) == 1 and len(unique_losers) >= 1:
                 bid_owner_user_id = unique_winners[0]
                 bid_owner_won = True
-            elif len(unique_losers) == 1:
+            elif len(unique_losers) == 1 and len(unique_winners) >= 1:
                 bid_owner_user_id = unique_losers[0]
                 bid_owner_won = False
 
@@ -274,6 +272,7 @@ def get_scoreboard_session(game_id: UUID, db: Session = Depends(get_db)):
             "players": hand_player_rows,
             "card_totals": card_totals,
             "hand_total_sum": sum(card_totals.values()),
+            "cards_detail": cards_detail_output,
         })
 
         hand_summary_rows.append({
