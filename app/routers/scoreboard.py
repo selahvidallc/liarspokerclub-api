@@ -170,7 +170,6 @@ def get_scoreboard_session(game_id: UUID, db: Session = Depends(get_db)):
     hands_output = []
     session_totals = {pid: 0.0 for pid in player_ids}
     hand_summary_rows = []
-    card_roles_output = []
 
     for hand_number in sorted(hands_grouped.keys()):
         hand_rows = hands_grouped[hand_number]
@@ -178,7 +177,8 @@ def get_scoreboard_session(game_id: UUID, db: Session = Depends(get_db)):
         player_card_amounts = {pid: {} for pid in player_ids}
         hand_totals = {pid: 0.0 for pid in player_ids}
         card_totals = {}
-        cards_detail_output = []
+        cards_output = []
+        card_labels = []
 
         cards = {}
         for r in hand_rows:
@@ -187,16 +187,28 @@ def get_scoreboard_session(game_id: UUID, db: Session = Depends(get_db)):
         for card_number in sorted(cards.keys()):
             card_rows = cards[card_number]
             card_key = f"Card {card_number}"
+            card_labels.append(card_key)
             card_totals[card_key] = 0.0
 
             winners = []
             losers = []
             participants = set()
+            settlement_rows = []
+
+            final_bid_raw = None
+            notes = None
+            amount_won = 0.0
 
             for r in card_rows:
                 winner = r["winner_user_id"]
                 loser = r["loser_user_id"]
                 amount = float(r["amount_won"])
+
+                if final_bid_raw is None:
+                    final_bid_raw = r["final_bid_raw"]
+                if notes is None:
+                    notes = r["notes"]
+                amount_won = amount
 
                 if winner:
                     winners.append(winner)
@@ -222,14 +234,11 @@ def get_scoreboard_session(game_id: UUID, db: Session = Depends(get_db)):
                     session_totals[loser] -= amount
                     card_totals[card_key] -= amount
 
-                cards_detail_output.append({
+                settlement_rows.append({
                     "row_id": r["row_id"],
-                    "card_number": card_number,
                     "winner_user_id": winner,
                     "loser_user_id": loser,
                     "amount_won": amount,
-                    "final_bid_raw": r["final_bid_raw"],
-                    "notes": r["notes"],
                 })
 
             unique_winners = sorted(set(winners))
@@ -238,9 +247,6 @@ def get_scoreboard_session(game_id: UUID, db: Session = Depends(get_db)):
             bid_owner_user_id = None
             bid_owner_won = None
 
-            # infer bid owner from settlement shape:
-            # one winner vs many losers => bid owner won
-            # many winners vs one loser => bid owner lost
             if len(unique_winners) == 1 and len(unique_losers) >= 1:
                 bid_owner_user_id = unique_winners[0]
                 bid_owner_won = True
@@ -248,13 +254,16 @@ def get_scoreboard_session(game_id: UUID, db: Session = Depends(get_db)):
                 bid_owner_user_id = unique_losers[0]
                 bid_owner_won = False
 
-            card_roles_output.append({
-                "hand_number": hand_number,
+            cards_output.append({
                 "card_number": card_number,
+                "label": card_key,
                 "bid_owner_user_id": bid_owner_user_id,
                 "bid_owner_won": bid_owner_won,
-                "amount_won": float(card_rows[0]["amount_won"]) if card_rows else 0.0,
+                "final_bid_raw": final_bid_raw,
+                "notes": notes,
+                "amount_won": amount_won,
                 "participant_ids": sorted(participants),
+                "settlement_rows": settlement_rows,
             })
 
         hand_player_rows = []
@@ -268,13 +277,12 @@ def get_scoreboard_session(game_id: UUID, db: Session = Depends(get_db)):
 
         hands_output.append({
             "hand_number": hand_number,
-            "cards": list(card_totals.keys()),
+            "cards": cards_output,
             "players": hand_player_rows,
             "card_totals": card_totals,
             "hand_total_sum": sum(card_totals.values()),
-            "cards_detail": cards_detail_output,
         })
-
+        
         hand_summary_rows.append({
             "hand_number": hand_number,
             "totals": {pid: hand_totals[pid] for pid in player_ids},
@@ -294,5 +302,4 @@ def get_scoreboard_session(game_id: UUID, db: Session = Depends(get_db)):
         "hands": hands_output,
         "hand_summary": hand_summary_rows,
         "session_summary": session_summary_players,
-        "card_roles": card_roles_output,
     }
