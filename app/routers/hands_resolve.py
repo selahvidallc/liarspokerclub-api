@@ -185,6 +185,8 @@ def resolve_hand(
             card_number=card_number,
             winner_user_id=winner_id,
             loser_user_id=loser_id,
+            bid_owner_user_id=bid_owner,
+            bid_owner_won=payload.bid_owner_won,
             final_bid_raw=parsed.raw,
             final_bid_count=parsed.count,
             final_bid_digit=parsed.digit,

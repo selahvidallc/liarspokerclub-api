@@ -68,7 +68,13 @@ class Hand(Base):
     card_number: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     winner_user_id: Mapped[uuid.UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     loser_user_id: Mapped[uuid.UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
-
+    bid_owner_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("users.id"),
+        nullable=True,
+    )
+    bid_owner_won: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    
     final_bid_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     final_bid_digit: Mapped[int | None] = mapped_column(Integer, nullable=True)
     final_bid_raw: Mapped[str | None] = mapped_column(String(20), nullable=True)
